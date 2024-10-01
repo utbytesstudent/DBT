@@ -2,16 +2,17 @@
 import tensorflow as tf
 import numpy as np
 import cv2
+import time
 
 # Function to draw keypoints on a frame
 def draw_keypoints(frame, keypoints, confidence_threshold):
     y, x, c = frame.shape
     shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
-    
+
     for kp in shaped:
         ky, kx, kp_conf = kp
         if kp_conf > confidence_threshold:
-            cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1) 
+            cv2.circle(frame, (int(kx), int(ky)), 4, (0, 255, 0), -1)
 
 # Edges to connect keypoints with lines
 EDGES = {
@@ -24,21 +25,21 @@ EDGES = {
 def draw_connections(frame, keypoints, edges, confidence_threshold):
     y, x, c = frame.shape
     shaped = np.squeeze(np.multiply(keypoints, [y, x, 1]))
-    
+
     for edge, color in edges.items():
         p1, p2 = edge
         y1, x1, c1 = shaped[p1]
         y2, x2, c2 = shaped[p2]
-        
-        if (c1 > confidence_threshold) & (c2 > confidence_threshold):      
+
+        if (c1 > confidence_threshold) & (c2 > confidence_threshold):
             cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
 # Load the MoveNet model (replace with your own model path)
-interpreter = tf.lite.Interpreter(model_path=r'C:\Users\Zacharina\Downloads\movenet-tflite-singlepose-lightning-v1\3.tflite')
+interpreter = tf.lite.Interpreter(model_path=r'C:\Users\Zacharina\Downloads\movenet-tflite-singlepose-thunder-v1\3.tflite')
 interpreter.allocate_tensors()
 
 # Replace with the path to your video file
-video_path =r"C:\Users\Zacharina\Pictures\Camera Roll\testvideo.mp4"  # Change this to your video file path
+video_path = r"C:\Users\Zacharina\Videos\test.MP4"  # Change this to your video file path
 cap = cv2.VideoCapture(video_path)
 
 # Check if the video was successfully opened
@@ -46,38 +47,59 @@ if not cap.isOpened():
     print("Error: Could not open video.")
     exit()
 
+# Get the width, height, and FPS of the original video
+frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+fps = cap.get(cv2.CAP_PROP_FPS)
+
+# Define output filename
+output_filename = "movenetthunder.avi"
+
+# Define codec and create VideoWriter object to save the output video
+fourcc = cv2.VideoWriter_fourcc(*'XVID')  # You can change codec if necessary
+out = cv2.VideoWriter(output_filename, fourcc, fps, (frame_width, frame_height))
+
+# Initialize variables for calculating FPS
+prev_frame_time = 0
+new_frame_time = 0
+
 # Frame-by-frame video processing loop
 while cap.isOpened():
     ret, frame = cap.read()
     
     if not ret:
         break  # Exit the loop if no frame is captured (end of video)
-    
-    # Resize and preprocess the frame for the model
+
+    # Resize and preprocess the frame for the model to 256x256
     img = frame.copy()
-    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 192, 192)
+    img = tf.image.resize_with_pad(np.expand_dims(img, axis=0), 256, 256)  # Change to 256
     input_image = tf.cast(img, dtype=tf.float32)
-    
+
     # Set up input and output details for the model
     input_details = interpreter.get_input_details()
     output_details = interpreter.get_output_details()
-    
+
     # Run the model to get keypoints
     interpreter.set_tensor(input_details[0]['index'], np.array(input_image))
     interpreter.invoke()
     keypoints_with_scores = interpreter.get_tensor(output_details[0]['index'])
-    
+
     # Render the skeleton on the frame
     draw_connections(frame, keypoints_with_scores, EDGES, 0.4)
     draw_keypoints(frame, keypoints_with_scores, 0.4)
-    
-    # Show the frame with skeleton overlay
-    cv2.imshow('MoveNet Lightning - Skeleton Tracking', frame)
-    
-    # Press 'q' to exit the video
-    if cv2.waitKey(10) & 0xFF == ord('q'):
-        break
 
-# Release the video capture and close all OpenCV windows
+    # Calculate FPS
+    new_frame_time = time.time()
+    fps_value = 1 / (new_frame_time - prev_frame_time) if prev_frame_time != 0 else 0
+    prev_frame_time = new_frame_time
+
+    # Convert FPS to an integer and display it on the frame
+    fps_text = f'FPS: {int(fps_value)}'
+    cv2.putText(frame, fps_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+
+    # Save the current frame to the output video
+    out.write(frame)
+
+# Release the video capture and video writer
 cap.release()
-cv2.destroyAllWindows()
+out.release()
