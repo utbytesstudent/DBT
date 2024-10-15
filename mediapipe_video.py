@@ -6,7 +6,7 @@ mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 
 # Video Feed (replace this path with your video file path)
-cap = cv2.VideoCapture(r'C:\Users\Zacharina\Videos\test.MP4')
+cap = cv2.VideoCapture(r'C:\Users\Zacharina\Desktop\goprovideor\GX010938.MP4')
 
 # Get the width, height, and frame rate of the video
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -19,7 +19,7 @@ if fps == 0:
 
 # Define codec and create VideoWriter object to save output video
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('mediapipe.avi', fourcc, fps, (frame_width, frame_height))
+out = cv2.VideoWriter('mediapipe_gx010938.avi', fourcc, fps, (frame_width, frame_height))
 
 # Setup mediapipe instance
 with mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5) as pose:
